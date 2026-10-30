@@ -23,6 +23,9 @@ import {
   AlertTriangle,
   ArrowRight,
   FileDown,
+  Share2,
+  Smartphone,
+  MessageSquare,
 } from 'lucide-react';
 import { Complaint } from '../types';
 import { generateAndDownloadComplaintPdf } from '../utils/complaintPdfGenerator';
@@ -112,6 +115,37 @@ export const TicketQrCodeModal: React.FC<TicketQrCodeModalProps> = ({
     } catch (err) {
       console.error('Failed to copy ticket URL:', err);
     }
+  };
+
+  const handleNativeShare = async () => {
+    const shareData = {
+      title: `Tiket Aduan #${complaint.id} - AmanahGov`,
+      text: `Pantau status aduan warga "${complaint.title}" secara transparan di Portal AmanahGov.`,
+      url: ticketUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = `*Layanan Pengaduan AmanahGov*\n\n` +
+      `No. Tiket: ${complaint.id}\n` +
+      `Judul: ${complaint.title}\n` +
+      `Status: ${complaint.status.replace(/_/g, ' ')}\n` +
+      `SLA: ${complaint.slaTargetHours} Jam\n\n` +
+      `Lacak langsung di:\n${ticketUrl}`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownloadQr = () => {
@@ -291,6 +325,26 @@ export const TicketQrCodeModal: React.FC<TicketQrCodeModalProps> = ({
 
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      onClick={handleNativeShare}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all shadow-md cursor-pointer"
+                      title="Bagikan tautan langsung tiket ini melalui aplikasi ponsel (WhatsApp, Telegram, dll)"
+                      id="btn-qr-modal-native-share"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Bagikan via Ponsel</span>
+                    </button>
+
+                    <button
+                      onClick={handleWhatsAppShare}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition-all shadow-md cursor-pointer"
+                      title="Kirim tiket ini langsung ke WhatsApp"
+                      id="btn-qr-modal-whatsapp"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </button>
+
                     <button
                       onClick={handleDownloadQr}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all shadow-md cursor-pointer"

@@ -30,6 +30,7 @@ import { Complaint, ComplaintCategory } from '../types';
 
 interface CategoryComparisonBarChartProps {
   complaints?: Complaint[];
+  selectedCategory?: string;
   onSelectCategory?: (category: ComplaintCategory) => void;
 }
 
@@ -95,11 +96,24 @@ type ChartStyleMode = 'grouped' | 'stacked';
 
 export const CategoryComparisonBarChart: React.FC<CategoryComparisonBarChartProps> = ({
   complaints = [],
+  selectedCategory,
   onSelectCategory,
 }) => {
   const [timeRange, setTimeRange] = useState<TimeRangeMode>('7d');
   const [chartStyle, setChartStyle] = useState<ChartStyleMode>('grouped');
   const [activeCategories, setActiveCategories] = useState<ComplaintCategory[]>(ALL_CATEGORIES);
+
+  // Sync with parent selectedCategory filter if provided
+  useEffect(() => {
+    if (selectedCategory && selectedCategory !== 'SEMUA') {
+      const matched = ALL_CATEGORIES.find((c) => c === selectedCategory);
+      if (matched) {
+        setActiveCategories([matched]);
+      }
+    } else if (selectedCategory === 'SEMUA') {
+      setActiveCategories(ALL_CATEGORIES);
+    }
+  }, [selectedCategory]);
   const [isLiveStreaming, setIsLiveStreaming] = useState<boolean>(true);
   const [liveStreamTick, setLiveStreamTick] = useState<number>(0);
   const [lastLiveEvent, setLastLiveEvent] = useState<{

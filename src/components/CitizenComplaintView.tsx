@@ -45,6 +45,7 @@ import { TicketQrCodeModal } from './TicketQrCodeModal';
 import { CameraQrScannerModal } from './CameraQrScannerModal';
 import { ComplaintPdfModal } from './ComplaintPdfModal';
 import { ComplaintsExportPdfModal } from './ComplaintsExportPdfModal';
+import { ComplaintDynamicQrGenerator } from './ComplaintDynamicQrGenerator';
 
 interface CitizenComplaintViewProps {
   complaints: Complaint[];
@@ -94,11 +95,9 @@ export const CitizenComplaintView: React.FC<CitizenComplaintViewProps> = ({
   const [ratingInput, setRatingInput] = useState(5);
   const [feedbackInput, setFeedbackInput] = useState('');
 
-  // QR Code Modal, Scanner & Inline Generation States
+  // QR Code Modal & Scanner States
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [qrModalComplaint, setQrModalComplaint] = useState<Complaint | null>(null);
-  const [inlineQrDataUrl, setInlineQrDataUrl] = useState<string>('');
-  const [inlineCopied, setInlineCopied] = useState<boolean>(false);
 
   // Digital Signed PDF Document Modal State
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
@@ -157,61 +156,6 @@ export const CitizenComplaintView: React.FC<CitizenComplaintViewProps> = ({
   };
 
   const selectedComplaint = complaints.find((c) => c.id === selectedComplaintId) || complaints[0];
-
-  // Generate inline mini-QR code whenever selectedComplaint changes
-  useEffect(() => {
-    if (!selectedComplaint) return;
-    let isMounted = true;
-    const url =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}${window.location.pathname}?ticket=${encodeURIComponent(selectedComplaint.id)}`
-        : `https://amanahgov.id/?ticket=${selectedComplaint.id}`;
-
-    QRCode.toDataURL(url, {
-      errorCorrectionLevel: 'H',
-      margin: 1,
-      width: 220,
-      color: {
-        dark: '#064e3b', // Deep emerald
-        light: '#ffffff',
-      },
-    })
-      .then((dataUrl) => {
-        if (isMounted) setInlineQrDataUrl(dataUrl);
-      })
-      .catch((err) => {
-        console.error('Error generating inline QR code:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedComplaint?.id]);
-
-  const handleInlineCopy = async () => {
-    if (!selectedComplaint) return;
-    const url =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}${window.location.pathname}?ticket=${encodeURIComponent(selectedComplaint.id)}`
-        : `https://amanahgov.id/?ticket=${selectedComplaint.id}`;
-
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-      } else {
-        const input = document.createElement('input');
-        input.value = url;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-      }
-      setInlineCopied(true);
-      setTimeout(() => setInlineCopied(false), 2000);
-    } catch (e) {
-      console.error('Failed to copy inline URL:', e);
-    }
-  };
 
   // Realtime count of complaints per urgency
   const urgencyCounts = useMemo(() => {
@@ -1269,123 +1213,19 @@ export const CitizenComplaintView: React.FC<CitizenComplaintViewProps> = ({
                 </div>
               </div>
 
-              {/* QR Code Deep-Link & Field Tracking Card */}
-              <div className="bg-gradient-to-r from-teal-950/70 via-slate-900 to-emerald-950/60 border border-teal-600/40 rounded-xl p-4 text-xs space-y-3 shadow-md">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  {/* Left: Mini Scannable QR Code */}
-                  <div className="flex items-center gap-3.5">
-                    <div
-                      onClick={() => {
-                        setQrModalComplaint(selectedComplaint);
-                        setIsQrModalOpen(true);
-                      }}
-                      className="p-1.5 bg-white rounded-xl shadow-lg border-2 border-teal-400/40 shrink-0 cursor-pointer group hover:scale-105 transition-transform"
-                      title="Klik untuk memperbesar QR Code dan mencetak lembar tugas"
-                    >
-                      {inlineQrDataUrl ? (
-                        <img
-                          src={inlineQrDataUrl}
-                          alt={`QR Code ${selectedComplaint.id}`}
-                          className="w-20 h-20 object-contain rounded"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 flex items-center justify-center text-slate-500 text-[10px]">
-                          Membuat QR...
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                          <QrCode className="w-4 h-4 text-teal-400" />
-                          <span>Kode QR Pelacakan Tiket #{selectedComplaint.id}</span>
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30">
-                          Deep-Link Siap Pindai
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-300 max-w-md leading-relaxed">
-                        Pindai via kamera smartphone untuk langsung membuka detail status pengerjaan, sisa SLA ({Math.max(0, selectedComplaint.slaTargetHours - selectedComplaint.elapsedHours)} jam), dan audit blockchain tiket ini tanpa login.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right: Quick Action Buttons */}
-                  <div className="flex flex-wrap sm:flex-col gap-2 shrink-0 self-stretch sm:self-auto sm:w-44">
-                    <button
-                      onClick={() => {
-                        setPdfModalComplaint(selectedComplaint);
-                        setIsPdfModalOpen(true);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md transition-colors cursor-pointer"
-                      title="Unduh Arsip Dokumen PDF Resmi Bertanda Tangan Digital"
-                      id="btn-inline-download-pdf"
-                    >
-                      <FileDown className="w-3.5 h-3.5" />
-                      <span>Unduh Berkas PDF</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setQrModalComplaint(selectedComplaint);
-                        setIsQrModalOpen(true);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-                      title="Buka QR ukuran besar dan cetak slip lapangan"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-teal-400" />
-                      <span>Cetak Lembar Tugas</span>
-                    </button>
-
-                    <button
-                      onClick={handleInlineCopy}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                        inlineCopied
-                          ? 'bg-emerald-500 text-white border-emerald-400'
-                          : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
-                      }`}
-                      title="Salin tautan langsung tiket ini"
-                    >
-                      {inlineCopied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Tautan Tersalin!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5 text-teal-400" />
-                          <span>Salin Tautan</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Direct Link Input Line */}
-                <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                  <span className="text-[10px] text-slate-400 shrink-0">URL Langsung:</span>
-                  <input
-                    type="text"
-                    readOnly
-                    value={
-                      typeof window !== 'undefined'
-                        ? `${window.location.origin}${window.location.pathname}?ticket=${selectedComplaint.id}`
-                        : `https://amanahgov.id/?ticket=${selectedComplaint.id}`
-                    }
-                    className="flex-1 bg-slate-950/70 border border-slate-800 rounded px-2.5 py-1 text-[11px] text-teal-300 font-mono select-all focus:outline-none"
-                  />
-                  <button
-                    onClick={() => {
-                      setQrModalComplaint(selectedComplaint);
-                      setIsQrModalOpen(true);
-                    }}
-                    className="text-[11px] text-teal-300 hover:text-white font-semibold shrink-0 cursor-pointer underline decoration-teal-500/50"
-                  >
-                    Pratinjau Pindai →
-                  </button>
-                </div>
-              </div>
+              {/* Fitur Generator QR Code Dinamis & Bagikan Tiket Aduan Warga via Ponsel */}
+              <ComplaintDynamicQrGenerator
+                complaint={selectedComplaint}
+                onOpenPrintModal={() => {
+                  setQrModalComplaint(selectedComplaint);
+                  setIsQrModalOpen(true);
+                }}
+                onDownloadPdf={() => {
+                  setPdfModalComplaint(selectedComplaint);
+                  setIsPdfModalOpen(true);
+                }}
+                onOpenWhatsAppModal={onOpenWhatsAppModal}
+              />
 
               {/* Blockchain Cryptographic Verification Strip */}
               <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-xl p-3.5 text-xs space-y-2">
